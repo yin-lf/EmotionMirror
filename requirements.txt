@@ -1,0 +1,17 @@
+# EmotionMirror 后端依赖
+# ========================
+
+# Flask 核心
+flask>=3.0.0
+flask-cors>=4.0.0
+
+# AI 模型 — TODO(组员B): BERT 文本情绪
+# transformers>=4.40.0
+# torch>=2.0.0
+
+# AI 模型 — TODO(组员C): 语音情绪识别
+# librosa>=0.10.0
+# soundfile>=0.12.0
+
+# 工具
+python-dotenv>=1.0.0
