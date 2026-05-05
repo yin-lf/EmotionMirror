@@ -2,142 +2,163 @@
 
 ## 项目简介
 
-EmotionMirror 是一个通过**文本、语音、图像**等多模态输入感知用户情绪，并驱动虚拟数字人进行情绪化交互的系统。
+本系统以"多模态情绪感知"和"数字分身动态反馈"为核心，构建一个能够通过文本、语音、图像等多模态输入感知用户情绪，并驱动虚拟数字人进行情绪化交互的系统。
 
-**核心流程：**
+系统划分为四个功能层：
 
-```
-文本/语音输入 → 情绪识别 → Emotion Vector → 数字分身情绪反馈 → UI 动态交互
-```
+| 层级 | 名称 | 职责 |
+|------|------|------|
+| Layer 1 | 多模态输入层 | 前端交互界面，提供文本/语音/视觉三种输入方式 |
+| Layer 2 | 情感分析层 | 文本与语音的情绪识别，输出 Emotion Vector |
+| Layer 3 | 情绪反馈层 | 根据 Emotion Vector 生成数字分身表情与氛围效果 |
+| Layer 4 | 人机交互层 | 数字分身桌面展示，视线追踪等交互能力 |
+
+## 分工
+
+- **组员A**：构建系统前端交互界面（Layer 1）
+- **组员B**：文本模态的情感分析（Layer 2）
+- **组员C**：语音模态的情感分析（Layer 2）
+- **组员D**：数字分身表情生成（Layer 3）
+- **组员E**：数字分身交互与桌面展示（Layer 4）
 
 ## 项目结构
 
 ```
 EmotionMirror/
-├── backend/                    # Flask 后端
-│   ├── app.py                  # 应用入口（工厂函数）
-│   ├── config.py               # 配置文件
-│   ├── routes/                 # API 路由
-│   │   ├── health.py           #   健康检查
-│   │   ├── emotion.py          #   情绪分析 API（TODO: 组员B/C）
-│   │   └── upload.py           #   文件上传（TODO: 组员A）
-│   ├── services/
-│   │   └── fusion.py           #   Emotion Vector 融合（TODO）
-│   └── utils/
-│       └── response.py         #   响应工具
-├── layer1_input/               # Layer1: 多模态输入层 — 组员A
-│   ├── text_input.py           #   文本输入处理
-│   ├── audio_input.py          #   音频输入处理
-│   └── image_input.py          #   图片输入处理
-├── layer2_text_emotion/        # Layer2: 文本情绪识别 — 组员B
-│   ├── bert_emotion.py         #   BERT 情绪分类（TODO）
-│   └── text_preprocess.py      #   文本预处理
-├── layer2_speech_emotion/      # Layer2: 语音情绪识别 — 组员C
-│   ├── speech_emotion.py       #   语音情绪识别（TODO）
-│   └── audio_preprocess.py     #   音频预处理
-├── layer3_emotion_feedback/    # Layer3: 情绪反馈层 — 组员D
-│   ├── emotion_mapper.py       #   情绪→UI 映射（TODO）
-│   ├── dynamic_emoji.py        #   动态表情生成
-│   └── theme_engine.py         #   主题引擎
-├── layer4_interaction/         # Layer4: 人机交互层 — 组员E
-│   ├── avatar_display.py       #   数字分身展示
-│   └── cursor_follower.py      #   鼠标视线跟随
-├── frontend/                   # React 前端
-│   ├── src/
-│   │   ├── App.jsx             #   主入口
-│   │   ├── api/emotion.js      #   API 封装
-│   │   ├── components/         #   组件
-│   │   │   ├── InputPanel.jsx  #     输入面板 — 组员A
-│   │   │   ├── EmotionRadar.jsx#     情绪雷达 — 组员D
-│   │   │   ├── AvatarDisplay.jsx#    数字分身 — 组员E
-│   │   │   ├── CursorFollower.jsx#   视线跟随 — 组员E
-│   │   │   ├── ParticleBackground.jsx # 粒子背景 — 组员D
-│   │   │   ├── DynamicTheme.jsx#     动态主题 — 组员D
-│   │   │   └── Layout.jsx      #     布局
-│   │   ├── hooks/              #   自定义 Hooks
-│   │   │   ├── useEmotion.js
-│   │   │   └── useCursorPosition.js
-│   │   └── utils/
-│   │       └── emotionUtils.js #   情绪工具函数
+├── frontend/                         # 前端工程（Layer 1）
+│   ├── index.html
 │   ├── package.json
 │   ├── vite.config.js
-│   ├── tailwind.config.js
-│   └── index.html
-├── static/                     # 静态资源
-│   ├── avatars/                #   头像存储
-│   └── audio/                  #   音频存储
-├── docs/                       # 文档
-├── models/                     # 模型缓存
-├── run_backend.py              # 后端启动
-├── run_frontend.sh             # 前端启动
-├── requirements.txt            # Python 依赖
+│   └── src/
+│       ├── main.jsx                  # 应用入口
+│       ├── App.jsx                   # 根组件（路由与状态管理）
+│       ├── App.css                   # 全局样式与设计系统
+│       ├── components/
+│       │   ├── TopNav.jsx            # 顶部导航栏
+│       │   ├── Sidebar.jsx           # 左侧工作流侧栏
+│       │   ├── StepInput.jsx         # Step 1：文本/语音输入
+│       │   ├── StepAvatar.jsx        # Step 2：数字形象上传
+│       │   ├── StepAnalysis.jsx      # Step 3：情绪分析结果展示
+│       │   └── StepDigitalTwin.jsx   # Step 4：数字分身（对接层）
+│       └── services/
+│           └── api.js                # 后端 API 接口封装
 └── README.md
 ```
 
-## 技术栈
+## 快速开始
 
-| 层级 | 技术 |
-|------|------|
-| 前端 | React + Vite + TailwindCSS + Framer Motion |
-| 后端 | Flask + Python |
-| 文本情绪 | BERT (Transformers) |
-| 语音情绪 | Speech Emotion Recognition |
-| 动态效果 | Dynamic Emoji + Eye-Follow-Cursor |
+### 环境要求
 
-## Emotion Vector 格式
+- Node.js >= 16
+- Python >= 3.10（后端服务）
 
-所有情绪分析模块统一输出以下格式：
+### 启动前端
 
-```json
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+默认访问地址：`http://localhost:5173/`
+
+### 环境变量
+
+前端通过环境变量配置后端地址，默认为 `http://localhost:8000`：
+
+```bash
+# .env.local
+VITE_API_BASE=http://localhost:8000
+```
+
+## 前端 API 接口
+
+前端通过 `src/services/api.js` 统一调用后端接口。以下接口需要后端组员（B/C/D）按约定实现：
+
+### 文本情感分析（对接组员B）
+
+```
+POST /api/text-emotion
+Content-Type: application/json
+
+请求体：
 {
-    "happy": 0.75,
-    "sad": 0.10,
-    "angry": 0.05,
-    "calm": 0.10
+  "text": "今天面试通过了我真的太开心了！"
+}
+
+响应体：
+{
+  "emotion": "开心",
+  "vector": [0.85, 0.72, 0.61]
 }
 ```
 
-## API 接口
+- `emotion`：情绪标签字符串
+- `vector`：情绪向量，依次为 效价(Valence)、唤醒度(Arousal)、优势度(Dominance)，范围 [0, 1]
 
-| 方法 | 路径 | 说明 | 负责人 |
-|------|------|------|--------|
-| GET | /api/health | 健康检查 | — |
-| POST | /api/predict/text | 文本情绪识别 | 组员B |
-| POST | /api/predict/speech | 语音情绪识别 | 组员C |
-| POST | /api/predict/multimodal | 多模态融合 | — |
-| POST | /api/upload/avatar | 上传头像 | 组员A |
-| POST | /api/upload/audio | 上传音频 | 组员A |
+### 语音情感分析（对接组员C）
 
-## 安装与运行
+```
+POST /api/voice-emotion
+Content-Type: multipart/form-data
 
-### 后端
+请求体：
+  audio: <音频文件>（字段名 "audio"，支持 WAV/MP3/M4A）
 
-```bash
-pip install -r requirements.txt
-python run_backend.py
+响应体：
+{
+  "emotion": "平静",
+  "vector": [0.45, 0.30, 0.55]
+}
 ```
 
-### 前端
+### 上传数字分身形象
 
-```bash
-bash run_frontend.sh
-# 或
-cd frontend && npm install && npm run dev
+```
+POST /api/avatar/upload
+Content-Type: multipart/form-data
+
+请求体：
+  image: <图片文件>（字段名 "image"，支持 JPG/PNG/WebP）
+
+响应体：
+{
+  "avatar_url": "/avatars/xxx.png",
+  "message": "上传成功"
+}
 ```
 
-## 分工
+### 获取数字分身表情（对接组员D）
 
-| 组员 | 负责模块 | 关键文件 |
-|------|----------|----------|
-| 组员A | Layer1 输入层 | `layer1_input/*`, `backend/routes/upload.py`, `InputPanel.jsx` |
-| 组员B | 文本情绪识别 | `layer2_text_emotion/*`, `backend/routes/emotion.py`(text) |
-| 组员C | 语音情绪识别 | `layer2_speech_emotion/*`, `backend/routes/emotion.py`(speech) |
-| 组员D | 情绪反馈与表情 | `layer3_emotion_feedback/*`, `EmotionRadar.jsx`, `ParticleBackground.jsx` |
-| 组员E | 数字分身交互 | `layer4_interaction/*`, `AvatarDisplay.jsx`, `CursorFollower.jsx` |
+```
+GET /api/avatar/emotions
 
-## 开发约定
+响应体：
+{
+  "emotions": ["开心", "悲伤", "愤怒", ...],
+  "avatar_url": "/avatars/current.png"
+}
+```
 
-- 所有 TODO 用 `# TODO(组员X):` 标注，方便搜索
-- Emotion Vector 格式必须统一（8 个情绪维度）
-- API 响应格式统一：`{"success": bool, ...}`
-- 前端组件 Props 接口已在注释中预留
+## 工作流程
+
+前端采用 4 步引导式工作流：
+
+1. **情绪输入** — 选择文本或语音模态，输入需要分析的内容
+2. **数字形象** — 上传数字分身的基础形象（自拍/二次元/卡通）
+3. **情绪分析** — 展示分析结果，包含情绪标签与情绪维度向量
+4. **数字分身** — 展示情绪化数字分身（等待 Layer 3/4 对接）
+
+## 技术栈
+
+- React 18 + Vite
+- Lucide React（图标）
+- Axios（HTTP 请求）
+- CSS Variables 设计系统
+
+## 参考仓库
+
+- 文本情感分析：Bert
+- 语音情感识别：[Renovamen/Speech-Emotion-Recognition](https://github.com/Renovamen/Speech-Emotion-Recognition)
+- 表情生成：[davidliszhou/dynamic-emoji-generator](https://github.com/davidliszhou/dynamic-emoji-generator)
+- 视线追踪：[Bharati-202/Eye-Follow-Cursor](https://github.com/bharati-202/eye-follow-cursor)

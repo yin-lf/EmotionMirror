@@ -1,13 +1,4 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
-/* TODO: 全局样式 — 深色科技感主题 */
-
-body {
-  margin: 0;
-  padding: 0;
-  background: #0F172A;
-  color: #E2E8F0;
-  font-family: 'Inter', system-ui, sans-serif;
+#root {
+  width: 100%;
+  min-height: 100vh;
 }
