@@ -54,40 +54,38 @@ EmotionMirror/
 ### 环境要求
 
 - Node.js >= 16
-- Python >= 3.10（后端服务）
+- Python >= 3.10
+- [uv](https://docs.astral.sh/uv/)（Python 包管理器）
+
+### 安装 uv
+
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+source ~/.local/bin/env
+```
 
 ### 安装项目依赖
 
 ```bash
 uv sync
+cd frontend && npm install && cd ..
 ```
 
-### 启动前端
+### 启动服务
+
+先启动后端，再启动前端（需要两个终端）：
 
 ```bash
-cd frontend
-npm install
-npm run dev
-```
-
-默认访问地址：`http://localhost:5173/`
-
-### 启动文本情感分析后端（组员B）
-
-```bash
+# 终端 1 — 后端
 uv run uvicorn backend.app:app --reload --port 8000
 ```
 
-后端默认地址：`http://localhost:8000`
-
-### 环境变量
-
-前端通过环境变量配置后端地址，默认为 `http://localhost:8000`：
-
 ```bash
-# .env.local
-VITE_API_BASE=http://localhost:8000
+# 终端 2 — 前端
+cd frontend && npm run dev
 ```
+
+前端通过 Vite 代理自动转发 `/api` 请求到后端，无需额外配置。启动后访问终端输出的地址即可（如 `http://localhost:5173/`）。
 
 ## 前端 API 接口
 
