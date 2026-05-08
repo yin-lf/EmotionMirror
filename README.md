@@ -25,6 +25,10 @@
 
 ```
 EmotionMirror/
+├── backend/                          # 文本情感分析后端（Layer 2 / 组员B）
+│   ├── app.py                        # FastAPI 入口
+│   ├── text_emotion.py               # 文本情绪识别与 Emotion Vector 映射
+│   └── __init__.py
 ├── frontend/                         # 前端工程（Layer 1）
 │   ├── index.html
 │   ├── package.json
@@ -52,6 +56,12 @@ EmotionMirror/
 - Node.js >= 16
 - Python >= 3.10（后端服务）
 
+### 安装项目依赖
+
+```bash
+uv sync
+```
+
 ### 启动前端
 
 ```bash
@@ -61,6 +71,14 @@ npm run dev
 ```
 
 默认访问地址：`http://localhost:5173/`
+
+### 启动文本情感分析后端（组员B）
+
+```bash
+uv run uvicorn backend.app:app --reload --port 8000
+```
+
+后端默认地址：`http://localhost:8000`
 
 ### 环境变量
 
@@ -74,6 +92,11 @@ VITE_API_BASE=http://localhost:8000
 ## 前端 API 接口
 
 前端通过 `src/services/api.js` 统一调用后端接口。以下接口需要后端组员（B/C/D）按约定实现：
+
+### 统一情绪输出规范（文本/语音通用）
+
+- `emotion`：情绪标签字符串，建议在以下集合内统一：开心、悲伤、愤怒、焦虑、恐惧、平静、厌恶、惊讶。
+- `vector`：长度为 3 的 V-A-D 向量，顺序为 效价(Valence)、唤醒度(Arousal)、优势度(Dominance)，范围 [0, 1]。
 
 ### 文本情感分析（对接组员B）
 
@@ -96,6 +119,12 @@ Content-Type: application/json
 - `emotion`：情绪标签字符串
 - `vector`：情绪向量，依次为 效价(Valence)、唤醒度(Arousal)、优势度(Dominance)，范围 [0, 1]
 
+## 文本情感分析说明（组员B）
+
+- 使用规则驱动的关键词匹配与强度调节，快速输出情绪标签与 Emotion Vector。
+- 支持情绪类别：开心、悲伤、愤怒、焦虑、恐惧、平静、厌恶、惊讶。
+- 输出向量遵循 V-A-D（Valence/Arousal/Dominance）三维情绪模型。
+
 ### 语音情感分析（对接组员C）
 
 ```
@@ -110,6 +139,8 @@ Content-Type: multipart/form-data
   "emotion": "平静",
   "vector": [0.45, 0.30, 0.55]
 }
+
+> 说明：语音与文本需保持相同 `emotion` 标签集合与 V-A-D 向量格式，便于前端与数字分身层统一对接。
 ```
 
 ### 上传数字分身形象
