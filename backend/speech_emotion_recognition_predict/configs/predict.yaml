@@ -1,0 +1,9 @@
+model: lstm
+
+class_labels: ["angry", "fear", "happy", "neutral", "sad", "surprise"]
+
+feature_folder: features/
+feature_method: l
+
+checkpoint_path: checkpoints/
+checkpoint_name: LSTM_LIBROSA_IS10
