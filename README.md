@@ -129,6 +129,7 @@ EmotionMirror/
 │   └── vite.config.js
 ├── .gitignore
 ├── pyproject.toml
+├── TEST.md                        # 测试指南
 └── README.md
 ```
 
