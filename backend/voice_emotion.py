@@ -167,16 +167,46 @@ class VoiceEmotionAnalyzer:
             raise
 
 
-_analyzer = VoiceEmotionAnalyzer()
+_analyzer = None
+
+
+def _get_analyzer() -> VoiceEmotionAnalyzer:
+    """懒加载获取分析器实例"""
+    global _analyzer
+    if _analyzer is None:
+        _analyzer = VoiceEmotionAnalyzer()
+    return _analyzer
 
 
 def analyze_voice(audio_path: str) -> VoiceEmotionResult:
-    return _analyzer.analyze(audio_path)
+    """分析语音情感，返回完整结果（包含多情感概率）"""
+    return _get_analyzer().analyze(audio_path)
+
+
+def analyze_voice_simple(audio_path: str) -> str:
+    """简化版：只返回主要情感名称"""
+    result = _get_analyzer().analyze(audio_path)
+    return result.emotion_name
+
+
+def analyze_voice_with_probs(audio_path: str) -> Tuple[str, Dict[str, float]]:
+    """分析语音情感，返回主要情感和所有情感百分比"""
+    result = _get_analyzer().analyze(audio_path)
+    return result.emotion_name, result.all_emotion_percentages
+
+
+def analyze_voice_top_k(audio_path: str, k: int = 3) -> List[Tuple[str, float]]:
+    """分析语音情感，返回前k个情感及其百分比"""
+    result = _get_analyzer().analyze(audio_path)
+    return result.get_top_k(k)
 
 
 __all__ = [
     'VoiceEmotionResult',
     'VoiceEmotionAnalyzer',
     'analyze_voice',
+    'analyze_voice_simple',
+    'analyze_voice_with_probs',
+    'analyze_voice_top_k',
     'Emotion'
 ]
