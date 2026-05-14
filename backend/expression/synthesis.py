@@ -46,17 +46,18 @@ class NoFaceError(Exception):
     pass
 
 
-def _run_retargeting(pipeline, image_path, eye_ratio, lip_ratio, params):
-    """Run expression retargeting with given parameter dict."""
+def _run_retargeting(pipeline, image_path, eye_ratio, lip_ratio, params,
+                     yaw=0.0, pitch=0.0, roll=0.0):
+    """Run expression retargeting with given parameter dict and head pose."""
     import gradio as gr
 
     try:
         _, result_img = pipeline.execute_image_retargeting(
             input_eye_ratio=eye_ratio,
             input_lip_ratio=lip_ratio,
-            input_head_pitch_variation=0.0,
-            input_head_yaw_variation=0.0,
-            input_head_roll_variation=0.0,
+            input_head_pitch_variation=pitch,
+            input_head_yaw_variation=yaw,
+            input_head_roll_variation=roll,
             mov_x=0.0,
             mov_y=0.0,
             mov_z=1.0,
@@ -109,10 +110,25 @@ def synthesize_expression(image_path: str, emotion: str):
     return out_path
 
 
+def _head_pose_at(frame_idx, total_frames):
+    """Compute subtle head micro-sway (yaw/pitch/roll) for pseudo-3D effect.
+
+    Uses integer-multiple sine frequencies so the pose is identical at
+    frame 0 and frame total_frames → seamless GIF loop.
+    """
+    import math
+    phase = 2.0 * math.pi * frame_idx / total_frames
+    yaw   =  2.5 * math.sin(2 * phase)
+    pitch =  1.5 * math.sin(1 * phase + math.pi / 4)
+    roll  =  1.0 * math.sin(3 * phase)
+    return yaw, pitch, roll
+
+
 def synthesize_expression_gif(image_path: str, emotion: str, num_frames: int = 12, fps: int = 10):
     """Generate a seamless loop GIF: neutral → emotion → neutral.
 
     The animation loops smoothly because the last frame returns to neutral.
+    Subtle head micro-sway (yaw/pitch/roll) is added for a pseudo-3D effect.
 
     Returns:
         Path to the output GIF file.
@@ -148,13 +164,16 @@ def synthesize_expression_gif(image_path: str, emotion: str, num_frames: int = 1
 
     frames = []
     math = __import__("math")
+    total_frames = 2 * num_frames
 
     # Phase 1: neutral → target (ease-in-out)
     for i in range(num_frames):
         t = i / num_frames
         t = 0.5 - 0.5 * math.cos(t * math.pi)
         params = _interpolate_params(target, t)
-        img = _run_retargeting(pipeline, image_path, eye_r, lip_r, params)
+        yaw, pitch, roll = _head_pose_at(i, total_frames)
+        img = _run_retargeting(pipeline, image_path, eye_r, lip_r, params,
+                               yaw=yaw, pitch=pitch, roll=roll)
         frames.append(apply_mask(img))
 
     # Phase 2: target → neutral (ease-in-out)
@@ -162,7 +181,9 @@ def synthesize_expression_gif(image_path: str, emotion: str, num_frames: int = 1
         t = 1.0 - (i + 1) / num_frames
         t = 0.5 - 0.5 * math.cos(t * math.pi)
         params = _interpolate_params(target, t)
-        img = _run_retargeting(pipeline, image_path, eye_r, lip_r, params)
+        yaw, pitch, roll = _head_pose_at(num_frames + i, total_frames)
+        img = _run_retargeting(pipeline, image_path, eye_r, lip_r, params,
+                               yaw=yaw, pitch=pitch, roll=roll)
         frames.append(apply_mask(img))
 
     out_path = os.path.join(

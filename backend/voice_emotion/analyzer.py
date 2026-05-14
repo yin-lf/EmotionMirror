@@ -84,6 +84,9 @@ class VoiceEmotionAnalyzer:
 
     def _load_model(self):
         """加载 LSTM 模型"""
+        import tensorflow as tf
+        tf.config.set_visible_devices([], 'GPU')
+
         lstm_path = os.path.abspath(os.path.join(os.path.dirname(__file__), 'speech_emotion_recognition_predict'))
 
         if lstm_path not in sys.path:

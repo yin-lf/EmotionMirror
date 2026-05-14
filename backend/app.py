@@ -9,7 +9,7 @@ import os
 from .schemas import EmotionResponse
 from .text_emotion import EmotionResult, analyze_text
 from .voice_emotion import analyze_voice
-from .expression_synthesis import synthesize_expression, synthesize_expression_gif, NoFaceError
+from .expression import synthesize_expression, synthesize_expression_gif, NoFaceError
 
 
 class TextEmotionRequest(BaseModel):
@@ -104,5 +104,5 @@ def avatar_file(filename: str):
     return FileResponse(path)
 
 
-emoji_static_dir = os.path.join(os.path.dirname(__file__), "dynamic-emoji-generator")
+emoji_static_dir = os.path.join(os.path.dirname(__file__), "expression", "dynamic-emoji-generator")
 app.mount("/emoji-generator", StaticFiles(directory=emoji_static_dir), name="emoji-generator")
