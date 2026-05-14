@@ -18,6 +18,8 @@ function App() {
   const [currentStep, setCurrentStep] = useState(0);
   const [completed, setCompleted] = useState([]);
   const [result, setResult] = useState(null);
+  const [avatarUrl, setAvatarUrl] = useState(null);
+  const [avatarFile, setAvatarFile] = useState(null);
 
   const goTo = (step) => {
     setCurrentStep(step);
@@ -46,6 +48,8 @@ function App() {
       case 1:
         return (
           <StepAvatar
+            onAvatarSelect={setAvatarUrl}
+            onAvatarFile={setAvatarFile}
             onNext={() => completeAndGo(2)}
             onPrev={goPrev}
           />
@@ -62,6 +66,8 @@ function App() {
         return (
           <StepDigitalTwin
             result={result}
+            avatarUrl={avatarUrl}
+            avatarFile={avatarFile}
             onPrev={goPrev}
           />
         );

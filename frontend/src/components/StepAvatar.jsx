@@ -4,7 +4,7 @@ import { uploadAvatarImage } from '../services/api';
 
 const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
-export default function StepAvatar({ onNext, onPrev }) {
+export default function StepAvatar({ onAvatarSelect, onAvatarFile, onNext, onPrev }) {
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -14,7 +14,10 @@ export default function StepAvatar({ onNext, onPrev }) {
   const handleFile = (f) => {
     if (f && ACCEPTED_TYPES.includes(f.type)) {
       setFile(f);
-      setPreview(URL.createObjectURL(f));
+      const url = URL.createObjectURL(f);
+      setPreview(url);
+      onAvatarSelect?.(url);
+      onAvatarFile?.(f);
     }
   };
 

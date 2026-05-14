@@ -43,4 +43,32 @@ export async function uploadAvatarImage(imageFile) {
   return res.data;
 }
 
+// 表情合成（静态图） — 对接组员D（LivePortrait）
+export async function synthesizeExpression(imageFile, emotion) {
+  console.log(`[API] POST /api/expression-synthesis — emotion: "${emotion}", file: "${imageFile.name}"`);
+  const formData = new FormData();
+  formData.append('image', imageFile);
+  formData.append('emotion', emotion);
+  const res = await api.post('/api/expression-synthesis', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+    responseType: 'blob',
+    timeout: 120000,
+  });
+  return URL.createObjectURL(res.data);
+}
+
+// 表情合成（动态GIF） — 对接组员D（LivePortrait）
+export async function synthesizeExpressionGif(imageFile, emotion) {
+  console.log(`[API] POST /api/expression-gif — emotion: "${emotion}", file: "${imageFile.name}"`);
+  const formData = new FormData();
+  formData.append('image', imageFile);
+  formData.append('emotion', emotion);
+  const res = await api.post('/api/expression-gif', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+    responseType: 'blob',
+    timeout: 300000,
+  });
+  return URL.createObjectURL(res.data);
+}
+
 export default api;

@@ -15,12 +15,13 @@ EmotionMirror 是一个基于**多模态情绪感知**的数字分身系统，�
 
 系统采用四层架构设计：
 
-| 层级 | 名称 | 职责 | 技术栈 |
-|------|------|------|--------|
-| Layer 1 | 多模态输入层 | 前端交互界面，提供文本/语音/视觉三种输入方式 | React + Vite |
-| Layer 2 | 情感分析层 | 文本与语音的情绪识别，输出 Emotion Vector | FastAPI + LSTM |
-| Layer 3 | 情绪反馈层 | 根据 Emotion Vector 生成数字分身表情与氛围效果 | - |
-| Layer 4 | 人机交互层 | 数字分身桌面展示，视线追踪等交互能力 | - |
+
+| 层级    | 名称         | 职责                                           | 技术栈         |
+| ------- | ------------ | ---------------------------------------------- | -------------- |
+| Layer 1 | 多模态输入层 | 前端交互界面，提供文本/语音/视觉三种输入方式   | React + Vite   |
+| Layer 2 | 情感分析层   | 文本与语音的情绪识别，输出 Emotion Vector      | FastAPI + LSTM |
+| Layer 3 | 情绪反馈层   | 根据 Emotion Vector 生成数字分身表情与氛围效果 | -              |
+| Layer 4 | 人机交互层   | 数字分身桌面展示，视线追踪等交互能力           | -              |
 
 ### 核心功能
 
@@ -36,52 +37,66 @@ EmotionMirror 是一个基于**多模态情绪感知**的数字分身系统，�
 ### 环境要求
 
 - **前端**: Node.js >= 16
-- **后端**: Python >= 3.10
-- **包管理器**: [uv](https://docs.astral.sh/uv/)（Python）、npm（前端）
+- **后端**: Python 3.10（Conda 环境名为 `emotion`）
+- **GPU**: NVIDIA GPU（推荐，表情合成需要 CUDA）
+- **包管理器**: Conda（后端）、npm（前端）
 
-### 安装依赖
+### 1. 创建 Conda 环境并安装依赖
 
 ```bash
-# 安装所有 Python 依赖（包括语音识别模块）
-uv sync
+# 创建 Python 3.10 环境
+conda create -n emotion python=3.10 -y
+conda activate emotion
+
+# 安装后端依赖
+pip install fastapi uvicorn python-multipart
+pip install -r backend/LivePortrait/requirements.txt
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
+pip install rembg
 
 # 安装前端依赖
 cd frontend && npm install && cd ..
 ```
 
-### 启动服务
+### 2. 下载 LivePortrait 预训练权重
+
+```bash
+# 下载权重到 backend/pretrained_weights/
+huggingface-cli download KlingTeam/LivePortrait --local-dir pretrained_weights
+```
+
+### 3. 下载 rembg 背景去除模型(自动识别提取前景人物)
+
+```bash
+wget -O ~/.u2net/u2net.onnx https://github.com/danielgatis/rembg/releases/download/v0.0.0/u2net.onnx
+```
+
+### 4. 启动服务
 
 需要两个终端分别启动后端和前端：
 
 ```bash
-# 终端 1 — 启动后端服务（端口 8000）
-uv run uvicorn backend.app:app --reload --port 8000
+# 终端 1 — 启动后端服务（必须用 emotion 环境）
+conda activate emotion
+cd ~/EmotionMirror
+uvicorn backend.app:app --reload --port 8000
 ```
 
 ```bash
 # 终端 2 — 启动前端开发服务器
-cd frontend && npm run dev
+cd ~/EmotionMirror/frontend && npm run dev
 ```
 
-启动后访问前端地址（默认 `http://localhost:5173/`）即可使用系统。
+启动后访问 `http://localhost:5173/` 即可使用系统。
 
-### 故障排除
+### 注意事项
 
-**问题1**：`'vite' 不是内部或外部命令`
+- 后端**必须用 `emotion` conda 环境启动**，`uv run` 使用的是 `.venv`，缺少 LivePortrait 依赖
+- 首次调用表情合成接口时会加载 LivePortrait 模型（约 10 秒），之后会缓存
+- `libcudnn.so.8: cannot open shared object file`ONNX runtime 的警告，不影响功能。如需消除：
 
-**解决方案**：
 ```bash
-cd frontend
-rm -rf node_modules package-lock.json
-npm install
-npm run dev
-```
-
-**问题2**：`Form data requires "python-multipart" to be installed`
-
-**解决方案**：确保已执行 `uv sync`，如果仍有问题：
-```bash
-uv pip install python-multipart
+conda install -c conda-forge cudnn
 ```
 
 ---
@@ -90,47 +105,53 @@ uv pip install python-multipart
 
 ```
 EmotionMirror/
-├── backend/                          # 后端服务
-│   ├── speech_emotion_recognition_predict/  # 语音情感识别模块
-│   │   ├── checkpoints/              # 模型权重文件
-│   │   │   ├── LSTM_LIBROSA_IS10.h5
-│   │   │   ├── LSTM_LIBROSA_IS10.json
-│   │   │   └── SCALER_LIBROSA.m
-│   │   ├── configs/                  # 配置文件
-│   │   ├── extract_feats/            # 特征提取
-│   │   ├── features/                 # 特征存储
-│   │   ├── models/                   # 模型定义
-│   │   ├── utils/                    # 工具函数
-│   │   ├── predict.py                # 语音预测接口
+├── backend/                                  # 后端服务（FastAPI + 情绪分析 + 表情合成）
+│   ├── app.py                                # FastAPI 入口
+│   ├── schemas.py                            # 请求/响应数据模型
+│   ├── text_emotion.py                       # 文本情感分析
+│   ├── voice_emotion.py                      # 语音情感分析 API
+│   ├── expression_synthesis.py               # 数字分身表情合成（LivePortrait）
+│   ├── voice_emo_example.py                  # 语音情感分析示例
+│   ├── sample.wav                            # 示例音频
+│   ├── speech_emotion_recognition_predict/   # 语音情感识别模型模块
+│   │   ├── checkpoints/                      # LSTM 权重与标准化器
+│   │   ├── configs/                          # 推理配置
+│   │   ├── extract_feats/                    # 音频特征提取
+│   │   ├── features/                         # 特征缓存
+│   │   ├── models/                           # 模型定义
+│   │   ├── utils/                            # 工具函数
+│   │   ├── predict.py                        # 预测入口
 │   │   └── requirements.txt
-│   ├── app.py                        # FastAPI 入口
-│   ├── schemas.py                    # 数据模型定义
-│   ├── text_emotion.py               # 文本情感分析
-│   ├── voice_emotion.py              # 语音情感分析接口
-│   ├── voice_emo_example.py          # 语音情感分析示例
-│   └── sample.wav                    # 示例音频
-├── frontend/                         # 前端工程
-│   ├── public/                       # 静态资源
+│   ├── LivePortrait/                         # 第三方表情驱动项目（子模块/源码）
+│   ├── pretrained_weights/                   # LivePortrait 预训练权重
+│   └── dynamic-emoji-generator/              # 动态表情资源与页面
+├── frontend/                                 # 前端工程（React + Vite）
+│   ├── public/                               # 静态资源
 │   ├── src/
-│   │   ├── assets/                   # 资源文件
-│   │   ├── components/               # React 组件
-│   │   │   ├── TopNav.jsx            # 顶部导航栏
-│   │   │   ├── Sidebar.jsx           # 工作流侧栏
-│   │   │   ├── StepInput.jsx         # 情绪输入组件
-│   │   │   ├── StepAvatar.jsx        # 数字形象上传
-│   │   │   ├── StepAnalysis.jsx      # 情绪分析结果
-│   │   │   └── StepDigitalTwin.jsx   # 数字分身展示
+│   │   ├── components/                       # 工作流 UI 组件
+│   │   │   ├── TopNav.jsx
+│   │   │   ├── Sidebar.jsx
+│   │   │   ├── StepInput.jsx
+│   │   │   ├── StepAvatar.jsx
+│   │   │   ├── StepAnalysis.jsx
+│   │   │   └── StepDigitalTwin.jsx
 │   │   ├── services/
-│   │   │   └── api.js                # API 接口封装
-│   │   ├── App.jsx                   # 根组件
-│   │   ├── App.css                   # 全局样式
-│   │   └── main.jsx                  # 应用入口
+│   │   │   └── api.js                        # 后端接口封装
+│   │   ├── assets/                           # 图片与图标资源
+│   │   ├── App.jsx
+│   │   ├── App.css
+│   │   ├── index.css
+│   │   └── main.jsx
+│   ├── index.html
 │   ├── package.json
+│   ├── eslint.config.js
 │   └── vite.config.js
-├── .gitignore
-├── pyproject.toml
-├── TEST.md                        # 测试指南
+├── pyproject.toml                            # Python 项目配置
+├── uv.lock                                   # uv 锁文件
+├── TESTING.md                                # 测试说明
 └── README.md
+
+# 注：node_modules/、dist/、__pycache__/ 等为运行或构建产物，文档中省略。
 ```
 
 ---
@@ -141,12 +162,14 @@ EmotionMirror/
 
 所有情感分析接口返回统一格式：
 
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| `emotion` | string | 情绪标签（开心、悲伤、愤怒、焦虑、恐惧、平静、厌恶、惊讶） |
-| `vector` | array[3] | V-A-D 三维情绪向量，范围 [0, 1] |
+
+| 字段      | 类型     | 说明                                                       |
+| --------- | -------- | ---------------------------------------------------------- |
+| `emotion` | string   | 情绪标签（开心、悲伤、愤怒、焦虑、恐惧、平静、厌恶、惊讶） |
+| `vector`  | array[3] | V-A-D 三维情绪向量，范围 [0, 1]                            |
 
 **V-A-D 模型说明**：
+
 - **Valence（效价）**：情绪的正负性，越高越积极
 - **Arousal（唤醒度）**：情绪的强度/活跃度
 - **Dominance（优势度）**：情绪的控制感/影响力
@@ -250,12 +273,14 @@ GET /api/avatar/emotions
 ## 技术栈
 
 ### 前端
+
 - React 19 + Vite 8
 - Lucide React（图标库）
 - Axios（HTTP 请求）
 - CSS Variables（设计系统）
 
 ### 后端
+
 - FastAPI（API 框架）
 - TensorFlow 2.x（语音情感识别模型）
 - Librosa（音频特征提取）
@@ -265,16 +290,17 @@ GET /api/avatar/emotions
 
 ## 支持的情感类别
 
-| 标签 | 中文 | 说明 |
-|------|------|------|
-| happy | 开心 | 积极、愉悦的情绪 |
-| sad | 悲伤 | 消极、低落的情绪 |
-| angry | 愤怒 | 生气、恼怒的情绪 |
-| fear | 恐惧 | 害怕、担忧的情绪 |
+
+| 标签     | 中文 | 说明             |
+| -------- | ---- | ---------------- |
+| happy    | 开心 | 积极、愉悦的情绪 |
+| sad      | 悲伤 | 消极、低落的情绪 |
+| angry    | 愤怒 | 生气、恼怒的情绪 |
+| fear     | 恐惧 | 害怕、担忧的情绪 |
 | surprise | 惊讶 | 意外、吃惊的情绪 |
-| neutral | 平静 | 中性、无明显情绪 |
-| anxious | 焦虑 | 紧张、不安的情绪 |
-| disgust | 厌恶 | 反感、嫌恶的情绪 |
+| neutral  | 平静 | 中性、无明显情绪 |
+| anxious  | 焦虑 | 紧张、不安的情绪 |
+| disgust  | 厌恶 | 反感、嫌恶的情绪 |
 
 ---
 
@@ -282,16 +308,18 @@ GET /api/avatar/emotions
 
 - 文本情感分析：BERT
 - 语音情感识别：[Renovamen/Speech-Emotion-Recognition](https://github.com/Renovamen/Speech-Emotion-Recognition)
-- 表情生成：[davidliszhou/dynamic-emoji-generator](https://github.com/davidliszhou/dynamic-emoji-generator)
+- 表情生成：[KlingAIResearch/LivePortrait: Bring portraits to life!](https://github.com/KlingAIResearch/LivePortrait)
 - 视线追踪：[Bharati-202/Eye-Follow-Cursor](https://github.com/bharati-202/eye-follow-cursor)
+
 ---
 
 ## 开发分工
 
-| 成员 | 负责模块 | 层级 |
-|------|----------|------|
-| 组员A | 前端交互界面 | Layer 1 |
-| 组员B | 文本情感分析 | Layer 2 |
-| 组员C | 语音情感识别 | Layer 2 |
-| 组员D | 数字分身表情生成 | Layer 3 |
+
+| 成员  | 负责模块               | 层级    |
+| ----- | ---------------------- | ------- |
+| 组员A | 前端交互界面           | Layer 1 |
+| 组员B | 文本情感分析           | Layer 2 |
+| 组员C | 语音情感识别           | Layer 2 |
+| 组员D | 数字分身表情生成       | Layer 3 |
 | 组员E | 数字分身交互与桌面展示 | Layer 4 |
