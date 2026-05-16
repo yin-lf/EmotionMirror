@@ -9,7 +9,7 @@ export default function StepDigitalTwin({ result, avatarFile, avatarUrl, onPrev 
   const [error, setError] = useState(null);
   const [desktopLoading, setDesktopLoading] = useState(false);
   const [desktopHint, setDesktopHint] = useState(null);
-  const [intensity, setIntensity] = useState(5);
+  const [intensity, setIntensity] = useState(3);
   const [advancedParams, setAdvancedParams] = useState(null);
 
   const emotion = result?.emotion || '平静';

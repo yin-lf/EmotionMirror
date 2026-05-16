@@ -508,7 +508,7 @@ class ChatDialog(QWidget):
         from PySide6.QtWidgets import QSpinBox
         self._intensity = QSpinBox()
         self._intensity.setRange(1, 5)
-        self._intensity.setValue(5)
+        self._intensity.setValue(3)
         self._intensity.setPrefix("强度")
         self._intensity.setFixedWidth(65)
         self._intensity.setFixedHeight(28)
