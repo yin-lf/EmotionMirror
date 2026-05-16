@@ -16,14 +16,14 @@ venv/
 ENV/
 
 # Environment variables (only actual .env, keep .env.example)
-.env
-!.env.example
+# .env
+# !.env.example
 
 # Packaging
 build/
 dist/
 *.egg-info/
-
+ 
 # uv
 .uv/
 
