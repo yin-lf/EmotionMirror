@@ -44,11 +44,13 @@ export async function uploadAvatarImage(imageFile) {
 }
 
 // 表情合成（静态图） — 对接组员D（LivePortrait）
-export async function synthesizeExpression(imageFile, emotion) {
+export async function synthesizeExpression(imageFile, emotion, params = null, intensity = 5) {
   console.log(`[API] POST /api/expression-synthesis — emotion: "${emotion}", file: "${imageFile.name}"`);
   const formData = new FormData();
   formData.append('image', imageFile);
   formData.append('emotion', emotion);
+  formData.append('intensity', intensity);
+  if (params) formData.append('params', JSON.stringify(params));
   const res = await api.post('/api/expression-synthesis', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
     responseType: 'blob',
@@ -58,17 +60,27 @@ export async function synthesizeExpression(imageFile, emotion) {
 }
 
 // 表情合成（动态GIF） — 对接组员D（LivePortrait）
-export async function synthesizeExpressionGif(imageFile, emotion) {
+export async function synthesizeExpressionGif(imageFile, emotion, params = null, intensity = 5) {
   console.log(`[API] POST /api/expression-gif — emotion: "${emotion}", file: "${imageFile.name}"`);
   const formData = new FormData();
   formData.append('image', imageFile);
   formData.append('emotion', emotion);
+  formData.append('intensity', intensity);
+  if (params) formData.append('params', JSON.stringify(params));
   const res = await api.post('/api/expression-gif', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
     responseType: 'blob',
     timeout: 300000,
   });
   return URL.createObjectURL(res.data);
+}
+
+let _paramsCache = null;
+export async function getExpressionParams() {
+  if (_paramsCache) return _paramsCache;
+  const res = await api.get('/api/expression-params');
+  _paramsCache = res.data;
+  return _paramsCache;
 }
 
 /** Push current expression GIF to the server so the PySide6 desktop window can show it. */

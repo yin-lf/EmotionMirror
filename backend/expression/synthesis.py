@@ -16,11 +16,31 @@ EMOTION_PARAMS = {
     "惊讶": {"smile": 0.5, "eyebrow": 30, "lip_variation_three": 100, "eyeball_direction_y": -40},
 }
 
-_PARAM_KEYS = [
-    "smile", "wink", "eyebrow",
-    "eyeball_direction_x", "eyeball_direction_y",
-    "lip_variation_zero", "lip_variation_one", "lip_variation_two", "lip_variation_three",
-]
+PARAM_RANGES = {
+    "smile":                {"min": -1.0, "max": 1.5,  "default": 0.0,  "step": 0.1},
+    "wink":                 {"min": 0.0,  "max": 1.0,  "default": 0.0,  "step": 0.05},
+    "eyebrow":              {"min": -40,  "max": 40,   "default": 0.0,  "step": 1},
+    "eyeball_direction_x":  {"min": -60,  "max": 60,   "default": 0.0,  "step": 1},
+    "eyeball_direction_y":  {"min": -60,  "max": 60,   "default": 0.0,  "step": 1},
+    "lip_variation_zero":   {"min": -0.1, "max": 0.1,  "default": 0.0,  "step": 0.005},
+    "lip_variation_one":    {"min": -30,  "max": 30,   "default": 0.0,  "step": 1},
+    "lip_variation_two":    {"min": -30,  "max": 30,   "default": 0.0,  "step": 1},
+    "lip_variation_three":  {"min": -100, "max": 100,  "default": 0.0,  "step": 1},
+}
+
+PARAM_LABELS = {
+    "smile":               "微笑",
+    "wink":                "眨眼",
+    "eyebrow":             "眉毛",
+    "eyeball_direction_x": "眼球水平",
+    "eyeball_direction_y": "眼球垂直",
+    "lip_variation_zero":  "嘴唇微调",
+    "lip_variation_one":   "嘴唇变化一",
+    "lip_variation_two":   "嘴唇变化二",
+    "lip_variation_three": "嘴唇变化三",
+}
+
+_PARAM_KEYS = list(PARAM_RANGES.keys())
 
 _pipeline = None
 
@@ -102,13 +122,23 @@ def _interpolate_params(target, t):
     return {k: v * t for k, v in target.items()}
 
 
-def synthesize_expression(image_path: str, emotion: str):
+def _apply_intensity(base_params: dict, intensity: int) -> dict:
+    """Scale all expression params by intensity/5."""
+    if not base_params or intensity >= 5:
+        return base_params
+    s = max(1, min(5, intensity)) / 5.0
+    return {k: v * s for k, v in base_params.items()}
+
+
+def synthesize_expression(image_path: str, emotion: str, params: dict = None, intensity: int = 5):
     """Single-frame expression synthesis."""
     import cv2
 
     pipeline = _get_pipeline()
-    params = EMOTION_PARAMS.get(emotion, {})
-    print(f"[DEBUG] emotion={emotion}, params={params}")
+    base = EMOTION_PARAMS.get(emotion, {})
+    base = _apply_intensity(base, intensity)
+    merged = {**base, **params} if params else base
+    print(f"[DEBUG] emotion={emotion}, params={merged}")
 
     import gradio as gr
     try:
@@ -118,7 +148,7 @@ def synthesize_expression(image_path: str, emotion: str):
             raise NoFaceError("未检测到人脸，请上传包含清晰正面人脸的照片") from e
         raise
 
-    result_img = _run_retargeting(pipeline, image_path, eye_r, lip_r, params)
+    result_img = _run_retargeting(pipeline, image_path, eye_r, lip_r, merged)
     out_path = os.path.join(tempfile.gettempdir(), f"expr_{emotion}_{os.path.basename(image_path)}")
     cv2.imwrite(out_path, cv2.cvtColor(result_img, cv2.COLOR_RGB2BGR))
     return out_path
@@ -132,13 +162,13 @@ def _head_pose_at(frame_idx, total_frames):
     """
     import math
     phase = 2.0 * math.pi * frame_idx / total_frames
-    yaw   =  2.5 * math.sin(2 * phase)
-    pitch =  1.5 * math.sin(1 * phase + math.pi / 4)
-    roll  =  1.0 * math.sin(3 * phase)
+    yaw   =  1.2 * math.sin(1 * phase)
+    pitch =  0.8 * math.sin(1 * phase + math.pi / 4)
+    roll  =  0.5 * math.sin(1 * phase)
     return yaw, pitch, roll
 
 
-def synthesize_expression_gif(image_path: str, emotion: str, num_frames: int = 12, fps: int = 10):
+def synthesize_expression_gif(image_path: str, emotion: str, num_frames: int = 12, fps: int = 10, params: dict = None, intensity: int = 5):
     """Generate a seamless loop GIF with transparent background.
 
     The animation loops smoothly because the last frame returns to neutral.
@@ -153,7 +183,9 @@ def synthesize_expression_gif(image_path: str, emotion: str, num_frames: int = 1
     from rembg import remove
 
     pipeline = _get_pipeline()
-    target = EMOTION_PARAMS.get(emotion, {})
+    base = EMOTION_PARAMS.get(emotion, {})
+    base = _apply_intensity(base, intensity)
+    target = {**base, **params} if params else base
 
     import gradio as gr
     try:

@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { synthesizeExpressionGif, publishDesktopWidgetGif } from '../services/api';
+import ExpressionParamsPanel from './ExpressionParamsPanel';
+import SceneBackground from './SceneBackground';
 
 export default function StepDigitalTwin({ result, avatarFile, avatarUrl, onPrev }) {
   const [gifUrl, setGifUrl] = useState(null);
@@ -7,10 +9,12 @@ export default function StepDigitalTwin({ result, avatarFile, avatarUrl, onPrev 
   const [error, setError] = useState(null);
   const [desktopLoading, setDesktopLoading] = useState(false);
   const [desktopHint, setDesktopHint] = useState(null);
+  const [intensity, setIntensity] = useState(5);
+  const [advancedParams, setAdvancedParams] = useState(null);
 
   const emotion = result?.emotion || '平静';
 
-  // 自动生成动态 GIF
+  // 自动生成动态 GIF（首次，使用默认参数）
   useEffect(() => {
     if (!avatarFile || !result?.emotion || result.emotion === '平静') return;
     let cancelled = false;
@@ -29,6 +33,16 @@ export default function StepDigitalTwin({ result, avatarFile, avatarUrl, onPrev 
       });
     return () => { cancelled = true; };
   }, [avatarFile, result?.emotion]);
+
+  const handleRegenerate = () => {
+    if (!avatarFile) return;
+    setLoading(true);
+    setError(null);
+    synthesizeExpressionGif(avatarFile, emotion, advancedParams, intensity)
+      .then((url) => setGifUrl(url))
+      .catch(() => setError('表情合成失败'))
+      .finally(() => setLoading(false));
+  };
 
   return (
     <div className="step-card">
@@ -52,6 +66,14 @@ export default function StepDigitalTwin({ result, avatarFile, avatarUrl, onPrev 
           </div>
         </div>
 
+        {emotion !== '平静' && (
+          <ExpressionParamsPanel
+            emotion={emotion}
+            onIntensityChange={setIntensity}
+            onParamsChange={setAdvancedParams}
+          />
+        )}
+
         {error && (
           <div style={{ padding: 'var(--space-3)', background: 'var(--color-error-bg)', border: '1px solid var(--color-error)', borderRadius: 'var(--radius-sm)', color: 'var(--color-error)', marginBottom: 'var(--space-4)' }}>
             {error}
@@ -66,20 +88,25 @@ export default function StepDigitalTwin({ result, avatarFile, avatarUrl, onPrev 
 
         {gifUrl && (
           <div style={{ textAlign: 'center', marginBottom: 'var(--space-4)' }}>
-            <img
-              src={gifUrl}
-              alt="动态表情"
-              style={{
-                maxWidth: '350px',
-                maxHeight: '350px',
-                borderRadius: 'var(--radius-md)',
-                border: '1px solid var(--color-border)',
-              }}
-            />
+            <SceneBackground emotion={emotion}>
+              <img
+                src={gifUrl}
+                alt="动态表情"
+                className="scene-gif"
+              />
+            </SceneBackground>
             <div style={{ marginTop: 'var(--space-3)', display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)', justifyContent: 'center' }}>
               <a href={gifUrl} download={`emoji_${emotion}.gif`} className="btn btn-primary">
                 下载动态表情 GIF
               </a>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                disabled={loading}
+                onClick={handleRegenerate}
+              >
+                重新生成 GIF
+              </button>
               <button
                 type="button"
                 className="btn btn-ghost"

@@ -27,7 +27,7 @@ from pydantic import BaseModel, Field
 from .schemas import EmotionResponse
 from .text_emotion import EmotionResult, analyze_text
 from .voice_emotion import analyze_voice
-from .expression import synthesize_expression, synthesize_expression_gif, NoFaceError, warmup_rembg
+from .expression import synthesize_expression, synthesize_expression_gif, NoFaceError, warmup_rembg, EMOTION_PARAMS, PARAM_RANGES, PARAM_LABELS
 
 
 class TextEmotionRequest(BaseModel):
@@ -74,14 +74,35 @@ def voice_emotion(audio: UploadFile = File(...)):
         os.unlink(temp_path)
 
 
+@app.get("/api/expression-params")
+def expression_params():
+    return {
+        "ranges": PARAM_RANGES,
+        "labels": PARAM_LABELS,
+        "defaults": EMOTION_PARAMS,
+    }
+
+
+def _parse_user_params(params_str: str) -> dict | None:
+    if not params_str or not params_str.strip():
+        return None
+    user_params = json.loads(params_str)
+    for key, val in user_params.items():
+        if key in PARAM_RANGES:
+            r = PARAM_RANGES[key]
+            user_params[key] = max(r["min"], min(r["max"], float(val)))
+    return user_params
+
+
 @app.post("/api/expression-synthesis")
-def expression_synthesis(image: UploadFile = File(...), emotion: str = Form("平静")):
+def expression_synthesis(image: UploadFile = File(...), emotion: str = Form("平静"), params: str = Form(""), intensity: int = Form(5)):
     with tempfile.NamedTemporaryFile(delete=False, suffix='.png') as temp_file:
         temp_file.write(image.file.read())
         temp_path = temp_file.name
 
     try:
-        out_path = synthesize_expression(temp_path, emotion)
+        user_params = _parse_user_params(params)
+        out_path = synthesize_expression(temp_path, emotion, params=user_params, intensity=intensity)
         return FileResponse(out_path, media_type="image/png", filename=f"expr_{emotion}.png")
     except NoFaceError as e:
         raise HTTPException(status_code=422, detail=str(e))
@@ -90,13 +111,14 @@ def expression_synthesis(image: UploadFile = File(...), emotion: str = Form("平
 
 
 @app.post("/api/expression-gif")
-def expression_gif(image: UploadFile = File(...), emotion: str = Form("平静")):
+def expression_gif(image: UploadFile = File(...), emotion: str = Form("平静"), params: str = Form(""), intensity: int = Form(5)):
     with tempfile.NamedTemporaryFile(delete=False, suffix='.png') as temp_file:
         temp_file.write(image.file.read())
         temp_path = temp_file.name
 
     try:
-        out_path = synthesize_expression_gif(temp_path, emotion)
+        user_params = _parse_user_params(params)
+        out_path = synthesize_expression_gif(temp_path, emotion, params=user_params, intensity=intensity)
         return FileResponse(out_path, media_type="image/gif", filename=f"expr_{emotion}.gif")
     except NoFaceError as e:
         raise HTTPException(status_code=422, detail=str(e))
@@ -230,9 +252,6 @@ def desktop_clear():
                 pass
     return {"ok": True}
 
-
-emoji_static_dir = os.path.join(os.path.dirname(__file__), "expression", "dynamic-emoji-generator")
-app.mount("/emoji-generator", StaticFiles(directory=emoji_static_dir), name="emoji-generator")
 
 # ---------------------------------------------------------------------------
 # Desktop Chat — emotion analysis + auto GIF generation + reply

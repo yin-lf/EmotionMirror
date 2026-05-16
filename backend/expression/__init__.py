@@ -3,6 +3,9 @@ from .synthesis import (
     synthesize_expression,
     synthesize_expression_gif,
     warmup_rembg,
+    EMOTION_PARAMS,
+    PARAM_RANGES,
+    PARAM_LABELS,
 )
 
 __all__ = [
@@ -10,4 +13,7 @@ __all__ = [
     "synthesize_expression",
     "synthesize_expression_gif",
     "warmup_rembg",
+    "EMOTION_PARAMS",
+    "PARAM_RANGES",
+    "PARAM_LABELS",
 ]
