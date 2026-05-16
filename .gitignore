@@ -15,9 +15,9 @@ __pycache__/
 venv/
 ENV/
 
-# Environment variables
+# Environment variables (only actual .env, keep .env.example)
 .env
-.env.*
+!.env.example
 
 # Packaging
 build/
@@ -54,3 +54,22 @@ Thumbs.db
 .vscode/
 !.vscode/extensions.json
 .idea/
+
+# --- Project-specific ---
+
+# User photo (personal data)
+soyo.jpg
+
+# Pretrained model weights (large files, download separately)
+backend/pretrained_weights/
+
+# LivePortrait example assets
+backend/expression/LivePortrait/assets/examples/
+
+# Temp files
+temp/
+tmp/
+*.tmp
+
+# Desktop widget cache (auto-generated GIFs)
+backend/expression/dynamic-emoji-generator/

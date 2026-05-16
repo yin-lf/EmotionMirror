@@ -71,4 +71,16 @@ export async function synthesizeExpressionGif(imageFile, emotion) {
   return URL.createObjectURL(res.data);
 }
 
+/** Push current expression GIF to the server so the PySide6 desktop window can show it. */
+export async function publishDesktopWidgetGif(blob, emotion = '') {
+  const formData = new FormData();
+  formData.append('emotion', emotion || '');
+  formData.append('gif', blob, 'widget.gif');
+  const res = await api.post('/api/desktop/publish', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+    timeout: 120000,
+  });
+  return res.data;
+}
+
 export default api;

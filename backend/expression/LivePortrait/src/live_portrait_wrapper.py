@@ -32,13 +32,14 @@ class LivePortraitWrapper(object):
         if inference_cfg.flag_force_cpu:
             self.device = 'cpu'
         else:
-            try:
-                if torch.backends.mps.is_available():
-                    self.device = 'mps'
-                else:
-                    self.device = 'cuda:' + str(self.device_id)
-            except:
+            mps = getattr(torch.backends, "mps", None)
+            if mps is not None and mps.is_available():
+                self.device = 'mps'
+            elif torch.cuda.is_available():
                 self.device = 'cuda:' + str(self.device_id)
+            else:
+                # CPU-only torch or no GPU driver: avoid cuda lazy_init AssertionError
+                self.device = 'cpu'
 
         model_config = yaml.load(open(inference_cfg.models_config, 'r'), Loader=yaml.SafeLoader)
         # init F

@@ -6,6 +6,7 @@ utility functions and classes to handle feature extraction and model loading
 
 import os
 import os.path as osp
+import pickle
 import torch
 from collections import OrderedDict
 import numpy as np
@@ -128,6 +129,28 @@ def remove_ddp_dumplicate_key(state_dict):
     return state_dict_new
 
 
+def _assert_readable_torch_checkpoint(ckpt_path: str) -> None:
+    """Catch Git LFS pointers / truncated downloads before torch.load obscure errors."""
+    if not osp.isfile(ckpt_path):
+        raise FileNotFoundError(ckpt_path)
+    size = osp.getsize(ckpt_path)
+    if size < 4096:
+        raise RuntimeError(
+            f"Checkpoint is too small ({size} bytes), not a valid LivePortrait weight file: {ckpt_path}\n"
+            "Re-download motion_extractor.pth (and siblings) from Hugging Face, or run: git lfs pull"
+        )
+    with open(ckpt_path, "rb") as f:
+        head = f.read(256)
+    if head.startswith(b"version https://git-lfs.github.com/spec/") or (
+        b"git-lfs.github.com" in head[:200] and b"oid sha256:" in head[:200]
+    ):
+        raise RuntimeError(
+            f"Checkpoint is a Git LFS pointer, not the real .pth file: {ckpt_path}\n"
+            "Install Git LFS (https://git-lfs.com), then: git lfs pull\n"
+            "Or download the binary from Hugging Face (KlingTeam/LivePortrait / KwaiVGI/LivePortrait)."
+        )
+
+
 def load_model(ckpt_path, model_config, device, model_type):
     model_params = model_config['model_params'][f'{model_type}_params']
 
@@ -142,6 +165,7 @@ def load_model(ckpt_path, model_config, device, model_type):
     elif model_type == 'stitching_retargeting_module':
         # Special handling for stitching and retargeting module
         config = model_config['model_params']['stitching_retargeting_module_params']
+        _assert_readable_torch_checkpoint(ckpt_path)
         checkpoint = torch.load(ckpt_path, map_location=lambda storage, loc: storage)
 
         stitcher = StitchingRetargetingNetwork(**config.get('stitching'))
@@ -167,7 +191,16 @@ def load_model(ckpt_path, model_config, device, model_type):
     else:
         raise ValueError(f"Unknown model type: {model_type}")
 
-    model.load_state_dict(torch.load(ckpt_path, map_location=lambda storage, loc: storage))
+    _assert_readable_torch_checkpoint(ckpt_path)
+    try:
+        state = torch.load(ckpt_path, map_location=lambda storage, loc: storage)
+    except (pickle.UnpicklingError, EOFError, RuntimeError) as e:
+        raise RuntimeError(
+            f"Failed to load checkpoint (corrupt or wrong format): {ckpt_path}\n"
+            "Replace this file with a full download from Hugging Face; "
+            "if you cloned the repo, use Git LFS or re-download the .pth binaries."
+        ) from e
+    model.load_state_dict(state)
     model.eval()
     return model
 
