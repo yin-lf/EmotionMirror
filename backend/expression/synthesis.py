@@ -1,6 +1,7 @@
 import sys
 import os
 import tempfile
+import numpy as np
 
 _LIVEPORTRAIT_DIR = os.path.join(os.path.dirname(__file__), "LivePortrait")
 
@@ -44,6 +45,19 @@ def _get_pipeline():
 
 class NoFaceError(Exception):
     pass
+
+
+_rembg_warmed = False
+
+
+def warmup_rembg():
+    global _rembg_warmed
+    if _rembg_warmed:
+        return
+    from rembg import remove
+    dummy = np.zeros((100, 100, 3), dtype=np.uint8)
+    remove(dummy)
+    _rembg_warmed = True
 
 
 def _run_retargeting(pipeline, image_path, eye_ratio, lip_ratio, params,
@@ -125,16 +139,16 @@ def _head_pose_at(frame_idx, total_frames):
 
 
 def synthesize_expression_gif(image_path: str, emotion: str, num_frames: int = 12, fps: int = 10):
-    """Generate a seamless loop GIF: neutral → emotion → neutral.
+    """Generate a seamless loop GIF with transparent background.
 
     The animation loops smoothly because the last frame returns to neutral.
     Subtle head micro-sway (yaw/pitch/roll) is added for a pseudo-3D effect.
+    Background is made transparent using rembg on the first frame.
 
     Returns:
         Path to the output GIF file.
     """
     import cv2
-    import imageio
     import numpy as np
     from rembg import remove
 
@@ -149,24 +163,32 @@ def synthesize_expression_gif(image_path: str, emotion: str, num_frames: int = 1
             raise NoFaceError("未检测到人脸") from e
         raise
 
-    # Generate mask from first frame using rembg
     first_img = _run_retargeting(pipeline, image_path, eye_r, lip_r, {})
     first_bgr = cv2.cvtColor(first_img, cv2.COLOR_RGB2BGR)
-    mask_rgba = remove(first_bgr)  # returns BGRA
-    mask = mask_rgba[:, :, 3]  # alpha channel as mask
-    mask = (mask > 128).astype(np.uint8) * 255
 
-    def apply_mask(img):
-        fg = cv2.bitwise_and(img, img, mask=mask)
-        bg = np.full_like(img, 255)
-        bg = cv2.bitwise_and(bg, bg, mask=cv2.bitwise_not(mask))
-        return cv2.add(fg, bg)
+    dilate_kernel = None
+    original_height = first_bgr.shape[0]
+    if original_height >= 200:
+        ksize = max(3, int(original_height * 0.025) | 1)
+        dilate_kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (ksize, ksize))
 
-    frames = []
+    mask_rgba = remove(first_bgr)
+    mask = mask_rgba[:, :, 3]
+    mask_bool = mask > 64
+
+    if dilate_kernel is not None:
+        mask_bool = cv2.dilate(mask_bool.astype(np.uint8), dilate_kernel, iterations=2).astype(bool)
+
+    def extract_foreground(img):
+        """Return RGBA image with transparent background."""
+        rgba = cv2.cvtColor(img, cv2.COLOR_RGB2RGBA)
+        rgba[~mask_bool, 3] = 0
+        return rgba
+
+    frames_rgba = []
     math = __import__("math")
     total_frames = 2 * num_frames
 
-    # Phase 1: neutral → target (ease-in-out)
     for i in range(num_frames):
         t = i / num_frames
         t = 0.5 - 0.5 * math.cos(t * math.pi)
@@ -174,9 +196,8 @@ def synthesize_expression_gif(image_path: str, emotion: str, num_frames: int = 1
         yaw, pitch, roll = _head_pose_at(i, total_frames)
         img = _run_retargeting(pipeline, image_path, eye_r, lip_r, params,
                                yaw=yaw, pitch=pitch, roll=roll)
-        frames.append(apply_mask(img))
+        frames_rgba.append(extract_foreground(img))
 
-    # Phase 2: target → neutral (ease-in-out)
     for i in range(num_frames):
         t = 1.0 - (i + 1) / num_frames
         t = 0.5 - 0.5 * math.cos(t * math.pi)
@@ -184,11 +205,44 @@ def synthesize_expression_gif(image_path: str, emotion: str, num_frames: int = 1
         yaw, pitch, roll = _head_pose_at(num_frames + i, total_frames)
         img = _run_retargeting(pipeline, image_path, eye_r, lip_r, params,
                                yaw=yaw, pitch=pitch, roll=roll)
-        frames.append(apply_mask(img))
+        frames_rgba.append(extract_foreground(img))
+
+    # Save as transparent GIF via PIL
+    from PIL import Image
+
+    # First frame: use its alpha to build a static mask
+    mask_bool = frames_rgba[0][:, :, 3] > 128
 
     out_path = os.path.join(
         tempfile.gettempdir(),
         f"expr_{emotion}_anim.gif",
     )
-    imageio.mimsave(out_path, frames, fps=fps, loop=0)
+
+    pil_out = []
+    for arr in frames_rgba:
+        rgb = arr[:, :, :3]  # RGB only
+        alpha = arr[:, :, 3] > 128
+        img = Image.fromarray(rgb, "RGB")
+        # Quantize to 255 colors (indexes 0-254)
+        p = img.quantize(colors=255, method=Image.Quantize.MEDIANCUT)
+        pal = p.getpalette()
+        pal.extend([0] * (768 - len(pal)))
+        p.putpalette(pal)
+        # Remap transparent pixels to index 255
+        arr_p = np.array(p, dtype=np.uint8)
+        arr_p[~alpha] = 255
+        p2 = Image.fromarray(arr_p, "P")
+        p2.putpalette(pal)
+        p2.info["transparency"] = 255
+        pil_out.append(p2)
+
+    pil_out[0].save(
+        out_path,
+        save_all=True,
+        append_images=pil_out[1:],
+        duration=1000 // fps,
+        loop=0,
+        transparency=255,
+        disposal=2,
+    )
     return out_path

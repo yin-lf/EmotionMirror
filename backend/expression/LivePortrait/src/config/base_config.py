@@ -13,6 +13,13 @@ def make_abs_path(fn):
     return osp.join(osp.dirname(osp.realpath(__file__)), fn)
 
 
+def make_pretrained_weights_path(*parts: str) -> str:
+    """EmotionMirror stores weights under backend/pretrained_weights (not LivePortrait/)."""
+    here = osp.dirname(osp.realpath(__file__))
+    root = osp.normpath(osp.join(here, "..", "..", "..", "..", "pretrained_weights"))
+    return osp.join(root, *parts) if parts else root
+
+
 class PrintableConfig:  # pylint: disable=too-few-public-methods
     """Printable Config defining str function"""
 

@@ -1,10 +1,12 @@
-import { useRef, useEffect, useState } from 'react';
-import { synthesizeExpressionGif } from '../services/api';
+import { useEffect, useState } from 'react';
+import { synthesizeExpressionGif, publishDesktopWidgetGif } from '../services/api';
 
 export default function StepDigitalTwin({ result, avatarFile, avatarUrl, onPrev }) {
   const [gifUrl, setGifUrl] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [desktopLoading, setDesktopLoading] = useState(false);
+  const [desktopHint, setDesktopHint] = useState(null);
 
   const emotion = result?.emotion || '平静';
 
@@ -74,11 +76,54 @@ export default function StepDigitalTwin({ result, avatarFile, avatarUrl, onPrev 
                 border: '1px solid var(--color-border)',
               }}
             />
-            <div style={{ marginTop: 'var(--space-3)' }}>
+            <div style={{ marginTop: 'var(--space-3)', display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)', justifyContent: 'center' }}>
               <a href={gifUrl} download={`emoji_${emotion}.gif`} className="btn btn-primary">
                 下载动态表情 GIF
               </a>
+              <button
+                type="button"
+                className="btn btn-ghost"
+                disabled={desktopLoading}
+                onClick={async () => {
+                  setDesktopLoading(true);
+                  setDesktopHint(null);
+                  try {
+                    const res = await fetch(gifUrl);
+                    const blob = await res.blob();
+                    await publishDesktopWidgetGif(blob, emotion);
+                    const api = import.meta.env.VITE_API_BASE || 'http://127.0.0.1:8000';
+                    setDesktopHint(
+                      `已同步到后端。请在本机另开终端（已安装 PySide6），在 EmotionMirror 项目根目录执行：\npython -m backend.desktop_pet --api ${api.replace(/\/$/, '')}`,
+                    );
+                  } catch (e) {
+                    console.error(e);
+                    setDesktopHint('同步失败，请确认后端已启动且可访问。');
+                  } finally {
+                    setDesktopLoading(false);
+                  }
+                }}
+              >
+                {desktopLoading ? '同步中…' : '在桌面显示'}
+              </button>
             </div>
+            {desktopHint && (
+              <pre
+                style={{
+                  marginTop: 'var(--space-4)',
+                  textAlign: 'left',
+                  fontSize: '12px',
+                  lineHeight: 1.5,
+                  padding: 'var(--space-3)',
+                  background: 'var(--color-surface-elevated)',
+                  borderRadius: 'var(--radius-sm)',
+                  border: '1px solid var(--color-border)',
+                  whiteSpace: 'pre-wrap',
+                  wordBreak: 'break-all',
+                }}
+              >
+                {desktopHint}
+              </pre>
+            )}
           </div>
         )}
       </div>

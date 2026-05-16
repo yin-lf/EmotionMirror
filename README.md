@@ -56,7 +56,7 @@ pip install -r <(grep '^	' pyproject.toml | sed 's/^[[:space:]]*"//;s/".*//' | g
 # 或逐条安装核心依赖：
 pip install fastapi uvicorn python-multipart pydantic
 pip install tensorflow librosa scikit-learn joblib pyyaml soundfile
-pip install -r backend/LivePortrait/requirements.txt
+pip install -r backend/expression/LivePortrait/requirements.txt
 pip install rembg imageio imageio-ffmpeg pillow scikit-image albumentations
 
 # 安装前端依赖
@@ -74,6 +74,9 @@ huggingface-cli download KlingTeam/LivePortrait --local-dir pretrained_weights
 
 ```bash
 wget -O ~/.u2net/u2net.onnx https://github.com/danielgatis/rembg/releases/download/v0.0.0/u2net.onnx
+
+#windows
+curl -o $env:USERPROFILE/.u2net/u2net.onnx https://github.com/danielgatis/rembg/releases/download/v0.0.0/u2net.onnx
 ```
 
 ### 4. 启动服务
@@ -93,6 +96,179 @@ cd ~/EmotionMirror/frontend && npm run dev
 ```
 
 启动后访问 `http://localhost:5173/` 即可使用系统。
+
+---
+
+## 桌宠（Desktop Pet）使用说明
+
+EmotionMirror 支持将数字分身的表情动画以**浮窗桌宠**的形式展示在桌面上，基于 PySide6 实现。
+
+### 环境准备
+
+```bash
+# 安装 PySide6（如尚未安装）
+pip install PySide6
+```
+
+### 启动桌宠
+
+确保后端已启动，然后在新终端中执行：
+
+```bash
+conda activate emotion
+cd ~/EmotionMirror
+python -m backend.desktop_pet --api http://127.0.0.1:8000
+```
+
+参数说明：
+
+| 参数 | 默认值 | 说明 |
+|------|--------|------|
+| `--api` | `http://127.0.0.1:8000` | FastAPI 后端地址 |
+| `--poll-interval` | `2.5` | 轮询新表情的间隔（秒） |
+| `--max-slots` | `6` | 最大缓存表情数 |
+
+### 同步表情到桌宠
+
+在前端完成情绪分析与表情生成后：
+
+1. 在 **Step 4 数字分身** 页面点击 **「在桌面显示」** 按钮
+2. 桌宠窗口会自动加载该表情，显示为带有透明背景的循环动画
+
+### 窗口操作
+
+| 操作 | 方式 |
+|------|------|
+| **拖拽移动** | 鼠标左键按住窗口任意位置拖动 |
+| **缩放大小** | 拖拽窗口右下角/左下角调整大小 |
+| **最小化** | 点击工具栏 `－` 按钮 |
+| **关闭** | 点击工具栏 `×` 按钮 |
+| **设置菜单** | 点击工具栏 `⚙` 按钮 |
+
+### 右键菜单
+
+在桌宠窗口上右键可打开菜单：
+
+- **置顶显示** — 切换窗口是否始终在最前方
+- **刷新表情** — 手动重新拉取后端表情数据
+- **清除所有表情** — 清空当前显示的所有表情
+- **退出** — 关闭桌宠
+
+### 键盘快捷键
+
+| 按键 | 功能 |
+|------|------|
+| `←` / `→` | 切换上一个/下一个表情 |
+
+### 聊天交互与情绪反馈
+
+桌宠内置了聊天对话框，实现情绪感知反馈闭环：
+
+1. 在对话框输入文字，按回车或点击「发送」
+2. 后端自动进行文本情绪分析
+3. 使用预设的 **soyo.jpg** 照片自动生成对应情绪的表情 GIF
+4. 桌宠立即切换显示该表情，同时在 **GIF 面板顶部弹出半透明对话气泡**（6 秒自动消失），对话框中保留历史记录
+5. 无需前端操作即可在桌宠端完成完整的「输入→感知→表达」闭环
+
+### 大模型接口与预设回复（Mock 模式）
+
+回复生成支持两种模式：**LLM 模式**（调用 OpenAI 兼容 API）和 **Mock 模式**（使用预设文档），通过配置文件切换。
+
+#### Mock 模式（预设回复）
+
+默认开启。Soyo 根据情绪分析结果从 `backend/presets/chat_presets.json` 中随机选取预设回复，不依赖外部 API。
+
+配置文件：
+
+```json
+{
+  "mock_enabled": true,
+  "replies": {
+    "开心": ["哇，感受到你的快乐了！", "开心最好了～", "嘻嘻，你开心我就开心 🎉"],
+    "悲伤": ["别难过，我在这儿陪着你呢 🌸", "抱抱你，一切都会好起来的 💕"],
+    "愤怒": ["消消气，深呼吸～", "生气伤身体，先喝口水冷静一下～"],
+    "焦虑": ["放轻松，一步一步来，一切都会好的 🌿", "深呼吸～跟我一起，呼……吸……"],
+    "恐惧": ["别怕，有我在呢，你很安全 🤝", "我会一直守护你的。"],
+    "平静": ["嗯，宁静的感觉真好～", "平静的时光最珍贵了。"],
+    "厌恶": ["看来你不太喜欢这个呢，换个心情吧 🍃", "嗯嗯，我懂的，那就不提它了。"],
+    "惊讶": ["哇，这可真让人意外！😮", "天哪，没想到会这样！"]
+  },
+  "fallback": "嗯嗯，我在听，你继续说～",
+  "system_prompt": "你是一个名为 Soyo 的桌面宠物..."
+}
+```
+
+| 配置项 | 说明 |
+|--------|------|
+| `mock_enabled` | `true` 时跳过 LLM，仅用预设回复；`false` 时优先调用 LLM，失败回退到预设 |
+| `replies` | 按情绪分类的预设回复列表（每条情绪可配置多条，随机选取） |
+| `fallback` | 情绪未匹配时的兜底回复 |
+| `system_prompt` | LLM 模式下使用的系统提示词（默认：`你是一个名为 Soyo 的桌面宠物，正在和朋友聊天...`） |
+
+可通过环境变量 `PRESETS_PATH` 指定自定义配置文件路径。
+
+#### LLM 模式
+
+回复生成支持 OpenAI 兼容 API，通过环境变量配置：
+
+```bash
+# 启动后端前设置（以 OpenAI 为例）
+set LLM_API_URL=https://api.openai.com/v1/chat/completions
+set LLM_API_KEY=sk-your-key-here
+set LLM_MODEL=gpt-4o-mini    # 可选，默认 gpt-4o-mini
+
+# 或使用本地模型（如 Ollama）
+set LLM_BASE_URL=http://localhost:11434/v1
+set LLM_API_KEY=ollama
+set LLM_MODEL=qwen2.5:7b
+
+# SiliconFlow / 其他兼容服务
+set LLM_BASE_URL=https://api.siliconflow.cn/v1
+set LLM_API_KEY=sk-your-key-here
+set LLM_MODEL=deepseek-ai/DeepSeek-V2.5
+
+# 然后正常启动后端
+uvicorn backend.app:app --reload --port 8000
+```
+
+**LLM 调用增强**：
+
+- **自动补全路径** — 环境变量支持 `LLM_API_URL`（完整端点）或 `LLM_BASE_URL`（基础路径），代码自动补全 `/chat/completions`
+- **对话历史** — 保留最近 10 轮对话记录，每次请求携带历史上下文，回答更连贯
+- **情绪标注** — 每条用户消息自动添加 `[情绪: 开心/悲伤/...]` 前缀，让大模型感知情绪状态
+- **超时回退** — LLM 调用超时或失败时自动回退到预设回复，不影响功能
+
+| 环境变量 | 说明 | 默认值 |
+|----------|------|--------|
+| `LLM_API_URL` / `LLM_BASE_URL` | OpenAI 兼容的聊天补全 API 地址 | 空 |
+| `LLM_API_KEY` | API 密钥 | 空 |
+| `LLM_MODEL` | 模型名称 | `gpt-4o-mini` |
+| `PRESETS_PATH` | 预设回复配置文件路径 | `backend/presets/chat_presets.json` |
+
+在 `chat_presets.json` 中将 `mock_enabled` 设为 `false` 即可启用 LLM 模式。不配置 LLM 环境变量时自动回退到预设回复，不影响功能。
+
+### 配置方法
+
+后端启动时会自动读取项目根目录下的 `.env` 文件（参考 `.env.example` 修改）：
+
+```bash
+# 复制示例文件
+cp .env.example .env
+
+# 编辑 .env 填入你的 API Key
+# 然后正常启动，无需手动 set 变量
+uvicorn backend.app:app --reload --port 8000
+```
+
+### 功能特性
+
+- **多表情切换** — 支持多种情绪表情在同一个窗口中轮播
+- **聊天交互** — 内置对话框，输入文字即可驱动 Soyo 的表情变化与文字回应
+- **情绪反馈闭环** — 输入→情绪分析→表情生成→展示+回复，全自动完成
+- **交叉淡入淡出** — 表情切换时有平滑的过渡动画
+- **透明背景** — 自动去除图片背景，只保留人物主体
+- **自适应比例** — 表情图片保持原始宽高比显示，不变形
+- **无缝循环** — 表情动画首尾帧一致，循环播放无跳帧
 
 ### 注意事项
 
@@ -278,13 +454,13 @@ GET /api/avatar/emotions
 
 ## 工作流程
 
-前端采用 4 步引导式工作流：
+前端采用 5 步引导式工作流：
 
 1. **情绪输入** — 选择文本或语音模态，输入需要分析的内容
 2. **数字形象** — 上传数字分身的基础形象（自拍/二次元/卡通）
 3. **情绪分析** — 展示分析结果，包含情绪标签与情绪维度向量
-4. **数字分身** — 展示情绪化数字分身
-5. 桌宠生成 —（等待 Layer 4 对接）
+4. **数字分身** — 展示情绪化数字分身，支持生成动态表情 GIF
+5. **桌面桌宠** — 将表情同步到桌面浮窗展示
 
 ---
 
