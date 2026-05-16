@@ -1,6 +1,8 @@
 import os
 import json
+import random
 import tempfile
+import urllib.request
 from contextlib import asynccontextmanager
 
 # Load .env file from project root
@@ -245,9 +247,38 @@ SOYO_PHOTO = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file
 # LLM_API_KEY = sk-...
 # LLM_MODEL  = gpt-4o-mini  (optional, default: gpt-4o-mini)
 
-_LLM_URL = os.environ.get("LLM_API_URL", "").strip()
+_LLM_URL = os.environ.get("LLM_API_URL") or os.environ.get("LLM_BASE_URL") or ""
+_LLM_URL = _LLM_URL.strip().rstrip("/")
+if _LLM_URL and not _LLM_URL.endswith("/chat/completions"):
+    _LLM_URL += "/chat/completions"
 _LLM_KEY = os.environ.get("LLM_API_KEY", "").strip()
 _LLM_MODEL = os.environ.get("LLM_MODEL", "gpt-4o-mini").strip()
+
+# ---------------------------------------------------------------------------
+# Preset replies config (loaded from JSON, skip LLM when mock_enabled)
+# ---------------------------------------------------------------------------
+_PRESETS_PATH = os.environ.get("PRESETS_PATH", "").strip()
+if not _PRESETS_PATH:
+    _PRESETS_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "presets", "chat_presets.json")
+
+_PRESETS = {
+    "mock_enabled": True,
+    "replies": {},
+    "fallback": "\u554a\u554a\u554a\uff0c\u6211\u5728\u542c\uff0c\u4f60\u7ee7\u7eed\u8bf4\uff5e",
+    "system_prompt": "你是一个名为 Soyo 的桌面宠物，正在和朋友聊天。根据对方表达的情绪（开心/悲伤/愤怒/焦虑/恐惧/平静/厌恶/惊讶）以及他说的话，用温柔可爱的语气回复，一句话即可。",
+}
+if os.path.isfile(_PRESETS_PATH):
+    try:
+        with open(_PRESETS_PATH, encoding="utf-8") as _f:
+            _PRESETS.update(json.load(_f))
+    except (json.JSONDecodeError, OSError) as _e:
+        print(f"[Soyo] 预设文件加载失败: {_e}")
+print(f"[Soyo] mock_enabled = {_PRESETS.get('mock_enabled')}, LLM_URL = {'已设置' if _LLM_URL else '未设置'}, LLM_KEY = {'已设置' if _LLM_KEY else '未设置'}")
+
+
+# Conversation history for LLM context
+_CONVERSATION: list[dict] = []
+_MAX_HISTORY = 10
 
 
 def _llm_reply(emotion: str, text: str) -> str | None:
@@ -259,19 +290,20 @@ def _llm_reply(emotion: str, text: str) -> str | None:
     if not _LLM_URL or not _LLM_KEY:
         return None
 
+    system_prompt = _PRESETS.get(
+        "system_prompt",
+        "你是一个名为 Soyo 的桌面宠物，正在和朋友聊天。"
+        "根据对方表达的情绪（开心/悲伤/愤怒/焦虑/恐惧/平静/厌恶/惊讶）"
+        "以及他说的话，用温柔可爱的语气回复，一句话即可。",
+    )
+
+    messages = [{"role": "system", "content": system_prompt}]
+    messages.extend(_CONVERSATION[-_MAX_HISTORY:])
+    messages.append({"role": "user", "content": f"[情绪: {emotion}] {text}"})
+
     payload = json.dumps({
         "model": _LLM_MODEL,
-        "messages": [
-            {
-                "role": "system",
-                "content": (
-                    "你是一个名为 Soyo 的桌面宠物，正在和主人聊天。"
-                    "根据主人表达的情绪（开心/悲伤/愤怒/焦虑/恐惧/平静/厌恶/惊讶）"
-                    "以及他说的话，用温柔可爱的语气回复，一句话即可。"
-                ),
-            },
-            {"role": "user", "content": text},
-        ],
+        "messages": messages,
         "temperature": 0.7,
         "max_tokens": 120,
     }).encode("utf-8")
@@ -289,28 +321,34 @@ def _llm_reply(emotion: str, text: str) -> str | None:
         with urllib.request.urlopen(req, timeout=15) as resp:
             data = json.loads(resp.read().decode("utf-8"))
         reply = data["choices"][0]["message"]["content"].strip()
-        return reply if reply else None
-    except Exception:
+    except Exception as _e:
+        print(f"[Soyo] LLM 调用失败: {_e}")
+        import traceback
+        traceback.print_exc()
         return None
+
+    # Store exchange in conversation history
+    _CONVERSATION.append({"role": "user", "content": f"[情绪: {emotion}] {text}"})
+    if reply:
+        _CONVERSATION.append({"role": "assistant", "content": reply})
+
+    return reply if reply else None
 
 
 def _chat_reply(emotion: str, text: str) -> str:
-    """Generate a reply — tries LLM first, falls back to template."""
+    """Generate a reply — uses presets if mock_enabled, otherwise tries LLM first."""
+    replies = _PRESETS.get("replies", {})
+
+    if _PRESETS.get("mock_enabled", True):
+        options = replies.get(emotion) or replies.get("平静") or [_PRESETS["fallback"]]
+        return random.choice(options)
+
     llm_reply = _llm_reply(emotion, text)
     if llm_reply:
         return llm_reply
 
-    replies = {
-        "开心":   "哇，感受到你的快乐了！我也跟着开心起来 ✨",
-        "悲伤":   "别难过，我在这儿陪着你呢 🌸",
-        "愤怒":   "消消气，深呼吸～世界还是很美好的 ☀️",
-        "焦虑":   "放轻松，一步一步来，一切都会好的 🌿",
-        "恐惧":   "别怕，有我在呢，你很安全 🤝",
-        "平静":   "嗯，宁静的感觉真好～",
-        "厌恶":   "看来你不太喜欢这个呢，换个心情吧 🍃",
-        "惊讶":   "哇，这可真让人意外！😮",
-    }
-    return replies.get(emotion, f"我感受到了你的情绪：{emotion}")
+    options = replies.get(emotion) or [_PRESETS["fallback"]]
+    return random.choice(options)
 
 
 import threading

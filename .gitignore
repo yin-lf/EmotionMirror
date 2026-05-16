@@ -63,6 +63,20 @@ soyo.jpg
 # Pretrained model weights (large files, download separately)
 backend/pretrained_weights/
 
+# Model weight files (anywhere in the project)
+*.pth
+*.pt
+*.ckpt
+*.onnx
+*.safetensors
+*.bin
+*.h5
+*.joblib
+*.zip
+
+# Precomputed embeddings / cache files
+*.pkl
+
 # LivePortrait example assets
 backend/expression/LivePortrait/assets/examples/
 

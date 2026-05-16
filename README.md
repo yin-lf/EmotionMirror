@@ -167,12 +167,49 @@ python -m backend.desktop_pet --api http://127.0.0.1:8000
 1. 在对话框输入文字，按回车或点击「发送」
 2. 后端自动进行文本情绪分析
 3. 使用预设的 **soyo.jpg** 照片自动生成对应情绪的表情 GIF
-4. 桌宠立即切换显示该表情，同时对话框中返回情感回应
+4. 桌宠立即切换显示该表情，同时在 **GIF 面板顶部弹出半透明对话气泡**（6 秒自动消失），对话框中保留历史记录
 5. 无需前端操作即可在桌宠端完成完整的「输入→感知→表达」闭环
 
-### 大模型接口
+### 大模型接口与预设回复（Mock 模式）
 
-回复生成函数支持 OpenAI 兼容 API，通过环境变量配置：
+回复生成支持两种模式：**LLM 模式**（调用 OpenAI 兼容 API）和 **Mock 模式**（使用预设文档），通过配置文件切换。
+
+#### Mock 模式（预设回复）
+
+默认开启。Soyo 根据情绪分析结果从 `backend/presets/chat_presets.json` 中随机选取预设回复，不依赖外部 API。
+
+配置文件：
+
+```json
+{
+  "mock_enabled": true,
+  "replies": {
+    "开心": ["哇，感受到你的快乐了！", "开心最好了～", "嘻嘻，你开心我就开心 🎉"],
+    "悲伤": ["别难过，我在这儿陪着你呢 🌸", "抱抱你，一切都会好起来的 💕"],
+    "愤怒": ["消消气，深呼吸～", "生气伤身体，先喝口水冷静一下～"],
+    "焦虑": ["放轻松，一步一步来，一切都会好的 🌿", "深呼吸～跟我一起，呼……吸……"],
+    "恐惧": ["别怕，有我在呢，你很安全 🤝", "我会一直守护你的。"],
+    "平静": ["嗯，宁静的感觉真好～", "平静的时光最珍贵了。"],
+    "厌恶": ["看来你不太喜欢这个呢，换个心情吧 🍃", "嗯嗯，我懂的，那就不提它了。"],
+    "惊讶": ["哇，这可真让人意外！😮", "天哪，没想到会这样！"]
+  },
+  "fallback": "嗯嗯，我在听，你继续说～",
+  "system_prompt": "你是一个名为 Soyo 的桌面宠物..."
+}
+```
+
+| 配置项 | 说明 |
+|--------|------|
+| `mock_enabled` | `true` 时跳过 LLM，仅用预设回复；`false` 时优先调用 LLM，失败回退到预设 |
+| `replies` | 按情绪分类的预设回复列表（每条情绪可配置多条，随机选取） |
+| `fallback` | 情绪未匹配时的兜底回复 |
+| `system_prompt` | LLM 模式下使用的系统提示词（默认：`你是一个名为 Soyo 的桌面宠物，正在和朋友聊天...`） |
+
+可通过环境变量 `PRESETS_PATH` 指定自定义配置文件路径。
+
+#### LLM 模式
+
+回复生成支持 OpenAI 兼容 API，通过环境变量配置：
 
 ```bash
 # 启动后端前设置（以 OpenAI 为例）
@@ -181,21 +218,34 @@ set LLM_API_KEY=sk-your-key-here
 set LLM_MODEL=gpt-4o-mini    # 可选，默认 gpt-4o-mini
 
 # 或使用本地模型（如 Ollama）
-set LLM_API_URL=http://localhost:11434/v1/chat/completions
+set LLM_BASE_URL=http://localhost:11434/v1
 set LLM_API_KEY=ollama
 set LLM_MODEL=qwen2.5:7b
+
+# SiliconFlow / 其他兼容服务
+set LLM_BASE_URL=https://api.siliconflow.cn/v1
+set LLM_API_KEY=sk-your-key-here
+set LLM_MODEL=deepseek-ai/DeepSeek-V2.5
 
 # 然后正常启动后端
 uvicorn backend.app:app --reload --port 8000
 ```
 
+**LLM 调用增强**：
+
+- **自动补全路径** — 环境变量支持 `LLM_API_URL`（完整端点）或 `LLM_BASE_URL`（基础路径），代码自动补全 `/chat/completions`
+- **对话历史** — 保留最近 10 轮对话记录，每次请求携带历史上下文，回答更连贯
+- **情绪标注** — 每条用户消息自动添加 `[情绪: 开心/悲伤/...]` 前缀，让大模型感知情绪状态
+- **超时回退** — LLM 调用超时或失败时自动回退到预设回复，不影响功能
+
 | 环境变量 | 说明 | 默认值 |
 |----------|------|--------|
-| `LLM_API_URL` | OpenAI 兼容的聊天补全 API 地址 | 空（未设置时使用模板回复） |
+| `LLM_API_URL` / `LLM_BASE_URL` | OpenAI 兼容的聊天补全 API 地址 | 空 |
 | `LLM_API_KEY` | API 密钥 | 空 |
 | `LLM_MODEL` | 模型名称 | `gpt-4o-mini` |
+| `PRESETS_PATH` | 预设回复配置文件路径 | `backend/presets/chat_presets.json` |
 
-不设置环境变量时，自动回退到内置模板回复，不影响功能。
+在 `chat_presets.json` 中将 `mock_enabled` 设为 `false` 即可启用 LLM 模式。不配置 LLM 环境变量时自动回退到预设回复，不影响功能。
 
 ### 配置方法
 

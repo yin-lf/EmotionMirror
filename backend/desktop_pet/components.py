@@ -6,7 +6,7 @@ import urllib.parse
 import urllib.request
 from typing import Optional
 
-from PySide6.QtCore import QPropertyAnimation, Qt, QTimer
+from PySide6.QtCore import QObject, QPropertyAnimation, Qt, QTimer, Signal
 from PySide6.QtGui import QImageReader, QMovie, QPixmap
 from PySide6.QtWidgets import QGraphicsOpacityEffect
 from PySide6.QtWidgets import (
@@ -454,6 +454,8 @@ SEND_STYLE = (
 class ChatDialog(QWidget):
     """Chat bubble area + text input for the desktop pet."""
 
+    _result_ready = Signal(object)  # cross-thread signal (QueuedConnection)
+
     def __init__(self, api_base: str, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         self._api_base = api_base.rstrip("/")
@@ -515,6 +517,9 @@ class ChatDialog(QWidget):
         self._send_btn.clicked.connect(self._send)
         self._loading = False
 
+        # Cross-thread signal: background thread emits, main thread handles
+        self._result_ready.connect(self._on_result, Qt.ConnectionType.QueuedConnection)
+
         # Signals (outer handler)
         self.on_chat_response = None  # callable(response_dict)
 
@@ -551,8 +556,7 @@ class ChatDialog(QWidget):
         except Exception as e:
             result = {"reply": f"（连接后端失败: {e}）", "emotion": "平静"}
 
-        # Update UI on main thread
-        QTimer.singleShot(0, lambda: self._on_result(result))
+        self._result_ready.emit(result)
 
     def _on_result(self, result: dict) -> None:
         self._loading = False

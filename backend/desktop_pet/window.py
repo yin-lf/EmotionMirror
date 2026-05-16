@@ -154,6 +154,24 @@ class DesktopAvatarWindow(QWidget):
         )
         layout.addWidget(self._gif_panel, 1)
 
+        # Speech bubble overlay on the GIF panel
+        self._speech_bubble = QLabel(self._gif_panel)
+        self._speech_bubble.setWordWrap(True)
+        self._speech_bubble.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._speech_bubble.setStyleSheet(
+            "background: rgba(30,30,40,200);"
+            "color: white;"
+            "border-radius: 12px;"
+            "padding: 10px 16px;"
+            "font-size: 13px;"
+        )
+        self._speech_bubble.setMaximumWidth(320)
+        self._speech_bubble.adjustSize()
+        self._speech_bubble.hide()
+        self._speech_timer = QTimer(self)
+        self._speech_timer.setSingleShot(True)
+        self._speech_timer.timeout.connect(self._speech_bubble.hide)
+
         # Chat dialog
         self._chat = ChatDialog(api_base=self._api_base, parent=self)
         self._chat.on_chat_response = self._on_chat_response
@@ -245,18 +263,33 @@ class DesktopAvatarWindow(QWidget):
 
     def _on_chat_response(self, result: dict) -> None:
         emotion = result.get("emotion", "")
+        reply = result.get("reply", "")
         gif_published = result.get("gif_published", False)
+
+        # Show speech bubble overlay on the GIF panel
+        self._speech_bubble.setText(reply)
+        self._speech_bubble.adjustSize()
+        self._layout_speech_bubble()
+        self._speech_bubble.show()
+        self._speech_timer.start(6000)
+
         if gif_published:
             self._status_label.setText(f"Soyo · {emotion} 😊")
-            # Trigger immediate poll to pick up the new GIF
             self._poll()
         else:
             self._status_label.setText(f"Soyo · {emotion}")
+
+    def _layout_speech_bubble(self) -> None:
+        pw = self._gif_panel.width()
+        bw = min(self._speech_bubble.width(), 320)
+        x = (pw - bw) // 2
+        self._speech_bubble.move(x, 12)
 
     def resizeEvent(self, event) -> None:
         super().resizeEvent(event)
         self._layout_toolbar()
         self._layout_resize_grips()
+        self._layout_speech_bubble()
 
     # ------------------------------------------------------------------
     # Resize corner grips (ported from Rachel)
