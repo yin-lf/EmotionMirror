@@ -32,6 +32,7 @@ from .expression import synthesize_expression, synthesize_expression_gif, NoFace
 
 class TextEmotionRequest(BaseModel):
     text: str = Field(..., min_length=1)
+    intensity: int = Field(5, ge=1, le=5)
 
 
 @asynccontextmanager
@@ -373,12 +374,12 @@ def _chat_reply(emotion: str, text: str) -> str:
 import threading
 
 
-def _generate_gif_background(emotion: str) -> None:
+def _generate_gif_background(emotion: str, intensity: int = 5) -> None:
     """Generate and publish GIF in a background thread."""
     if not os.path.isfile(SOYO_PHOTO):
         return
     try:
-        gif_path = synthesize_expression_gif(SOYO_PHOTO, emotion)
+        gif_path = synthesize_expression_gif(SOYO_PHOTO, emotion, intensity=intensity)
         with open(gif_path, "rb") as f:
             gif_data = f.read()
         if len(gif_data) >= 64:
@@ -401,8 +402,7 @@ def desktop_chat(payload: TextEmotionRequest):
     emotion = result.emotion
 
     # 2. Start GIF generation in background (reply won't wait for it)
-    if emotion != "平静":
-        threading.Thread(target=_generate_gif_background, args=(emotion,), daemon=True).start()
+    threading.Thread(target=_generate_gif_background, args=(emotion, payload.intensity), daemon=True).start()
 
     # 3. Generate reply (fast: template or LLM)
     reply = _chat_reply(emotion, text)

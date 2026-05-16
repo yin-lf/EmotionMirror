@@ -505,7 +505,16 @@ class ChatDialog(QWidget):
         self._send_btn.setFixedSize(48, 28)
         self._send_btn.setStyleSheet(SEND_STYLE)
 
+        from PySide6.QtWidgets import QSpinBox
+        self._intensity = QSpinBox()
+        self._intensity.setRange(1, 5)
+        self._intensity.setValue(5)
+        self._intensity.setPrefix("强度")
+        self._intensity.setFixedWidth(65)
+        self._intensity.setFixedHeight(28)
+
         input_row.addWidget(self._input, 1)
+        input_row.addWidget(self._intensity)
         input_row.addWidget(self._send_btn)
 
         layout.addLayout(input_row)
@@ -533,10 +542,10 @@ class ChatDialog(QWidget):
         self._send_btn.setEnabled(False)
         self._input.setEnabled(False)
         self._input.setPlaceholderText("Soyo 正在思考…")
-        self._call_chat_api(text)
+        self._call_chat_api(text, self._intensity.value())
 
-    def _call_chat_api(self, text: str) -> None:
-        data = json.dumps({"text": text}).encode("utf-8")
+    def _call_chat_api(self, text: str, intensity: int = 5) -> None:
+        data = json.dumps({"text": text, "intensity": intensity}).encode("utf-8")
         url = f"{self._api_base}/api/desktop/chat"
         threading.Thread(
             target=self._do_request,

@@ -1042,3 +1042,18 @@ body {
   0%, 100% { opacity: 0; transform: scale(0.5); }
   50% { opacity: 0.9; transform: scale(1.2); }
 }
+
+/* Ripple (心静如水) */
+.scene-ripple {
+  position: absolute;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255, 255, 255, 0.35);
+  animation: scene-ripple-expand ease-out infinite;
+}
+
+@keyframes scene-ripple-expand {
+  0% { width: 0; height: 0; opacity: 0.6; transform: translate(-50%, -50%); }
+  100% { width: 280px; height: 280px; opacity: 0; transform: translate(-50%, -50%); }
+}

@@ -16,7 +16,7 @@ export default function StepDigitalTwin({ result, avatarFile, avatarUrl, onPrev 
 
   // 自动生成动态 GIF（首次，使用默认参数）
   useEffect(() => {
-    if (!avatarFile || !result?.emotion || result.emotion === '平静') return;
+    if (!avatarFile || !result?.emotion) return;
     let cancelled = false;
     setLoading(true);
     setError(null);

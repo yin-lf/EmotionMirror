@@ -81,6 +81,21 @@ function SparkleEffect() {
   ));
 }
 
+function RippleEffect() {
+  const rings = useMemo(() => (
+    Array.from({ length: 4 }, (_, i) => ({
+      id: i,
+      left: `${30 + Math.random() * 40}%`,
+      top: `${30 + Math.random() * 40}%`,
+      delay: `${i * 1.8}s`,
+      duration: `${4 + Math.random() * 2}s`,
+    }))
+  ), []);
+  return rings.map((r) => (
+    <div key={r.id} className="scene-ripple" style={{ left: r.left, top: r.top, animationDelay: r.delay, animationDuration: r.duration }} />
+  ));
+}
+
 const EFFECTS = {
   rain: RainEffect,
   stars: StarsEffect,
@@ -88,6 +103,7 @@ const EFFECTS = {
   fog: FogEffect,
   lightning: LightningEffect,
   sparkle: SparkleEffect,
+  ripple: RippleEffect,
 };
 
 export default function SceneBackground({ emotion, children }) {
